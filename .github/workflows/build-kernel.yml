@@ -1,7 +1,7 @@
-name: Build Kernel (SDM670)
+name: Build Kernel (gts4lvwifi)
 
 on:
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -10,7 +10,7 @@ jobs:
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
         with:
-          ref: gpu-oc # Target the specific branch
+          ref: gpu-oc
           fetch-depth: 1
 
       - name: Install Build Dependencies
@@ -20,46 +20,62 @@ jobs:
             liblz4-tool libncurses5-dev libssl-dev python3 python2 unicode-data \
             zlib1g-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libarchive-tools
 
-      - name: Setup Toolchain (Clang)
+      - name: Setup Toolchain (Proton Clang)
         run: |
           mkdir toolchain
           cd toolchain
-          # Using Proton Clang (standard for Android kernel builds)
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
           echo "$(pwd)/clang/bin" >> $GITHUB_PATH
 
       - name: Build Kernel
         run: |
+          # 1. Setup Environment
           export ARCH=arm64
           export SUBARCH=arm64
           export PATH=$(pwd)/toolchain/clang/bin:$PATH
           
-          # Change this to match your actual defconfig name
-          DEFCONFIG=sdm670-perf_defconfig
+          # Configuration name provided by you
+          # Note: In this repo, it is located in the 'vendor/' subfolder
+          DEFCONFIG=vendor/gts4lvwifi_eur_open_defconfig
           
+          # 2. Initialize the .config file
           make -j$(nproc --all) O=out ARCH=arm64 \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             $DEFCONFIG
 
+          # 3. FIX: Handle missing symbols (LITTLE_CPU_MASK, etc.) automatically
+          # This prevents the "Console input/output is redirected" error
+          make -j$(nproc --all) O=out ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            olddefconfig
+
+          # 4. Compile the kernel
           make -j$(nproc --all) O=out ARCH=arm64 \
             CC=clang \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu-
 
-      - name: Check for Kernel Image
+      - name: Check for Output
         run: |
           if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-              echo "Build successful!"
+              echo "SUCCESS: Image.gz-dtb found"
+          elif [ -f out/arch/arm64/boot/Image.gz ]; then
+              echo "SUCCESS: Image.gz found"
           else
-              echo "Build failed! Image.gz-dtb not found."
+              echo "ERROR: Kernel image not found. Check build logs above."
               exit 1
           fi
 
-      - name: Upload Kernel Image
+      - name: Upload Kernel Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-SDM670-GPU-OC
-          path: out/arch/arm64/boot/Image.gz-dtb
+          name: Kernel-gts4lvwifi-GPU-OC
+          path: |
+            out/arch/arm64/boot/Image.gz-dtb
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/Image
