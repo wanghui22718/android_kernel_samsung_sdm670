@@ -1,0 +1,80 @@
+name: Build Samsung SDM670 Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - gnumdk
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache curl flex git kmod \
+            libelf-dev libssl-dev lz4 pahole python3 rsync zip zstd
+
+      - name: Prepare sibling prebuilt directories
+        run: |
+          mkdir -p ../prebuilts-master/clang/host/linux-x86
+          mkdir -p ../prebuilts/gcc/linux-x86/aarch64
+          mkdir -p ../prebuilts/gcc/linux-x86/arm
+
+      - name: Clone Lineage prebuilts
+        run: |
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_clang_host_linux-x86_clang-r365631c \
+            ../prebuilts-master/clang/host/linux-x86/clang-r365631c
+
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 \
+            ../prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+
+          git clone --depth=1 \
+            https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 \
+            ../prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
+
+      - name: Set up environment
+        run: |
+          echo "ARCH=arm64" >> $GITHUB_ENV
+          echo "SUBARCH=arm64" >> $GITHUB_ENV
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=aarch64-linux-androidkernel-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE_ARM32=arm-linux-androideabi-" >> $GITHUB_ENV
+          echo "PATH=$GITHUB_WORKSPACE/../prebuilts-master/clang/host/linux-x86/clang-r365631c/bin:$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Build kernel
+        run: |
+          mkdir -p out
+
+          # Change this defconfig if your device variant needs another one
+          make O=out gts4lvwifi_eur_open_defconfig
+          make O=out -j"$(nproc)"
+
+      - name: Show outputs
+        run: |
+          ls -lh out/arch/arm64/boot/ || true
+          ls -lh out/ || true
+
+      - name: Upload kernel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: samsung-sdm670-kernel
+          path: |
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/Image.gz
+            out/vmlinux
+            out/System.map
+          if-no-files-found: error
