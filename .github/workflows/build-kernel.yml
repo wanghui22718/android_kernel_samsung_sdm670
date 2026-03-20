@@ -10,47 +10,68 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Install deps
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            bc bison build-essential ccache clang flex git \
-            libelf-dev libssl-dev lz4 pahole python3 rsync wget zip zstd
+            bc bison build-essential ccache clang flex g++ gcc git \
+            libelf-dev libncurses-dev libssl-dev liblz4-tool lz4 \
+            pahole python3 rsync wget zip zstd xz-utils
+
+      - name: Prepare directories
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/aarch64"
+          mkdir -p "$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/arm"
 
       - name: Clone GCC prebuilts
         run: |
-          mkdir -p ../prebuilts/gcc/linux-x86/aarch64
-          mkdir -p ../prebuilts/gcc/linux-x86/arm
-
           git clone --depth=1 \
             https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 \
-            ../prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+            "$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
 
           git clone --depth=1 \
             https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 \
-            ../prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
+            "$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
 
       - name: Build
+        shell: bash
         run: |
+          set -euo pipefail
+
           export ARCH=arm64
           export SUBARCH=arm64
           export CC=clang
           export CLANG_TRIPLE=aarch64-linux-gnu-
           export CROSS_COMPILE=aarch64-linux-androidkernel-
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
+
           export PATH="$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$GITHUB_WORKSPACE/../prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin:$PATH"
 
           mkdir -p out
-          make O=out gts4lvwifi_eur_open_defconfig
-          make O=out -j"$(nproc)"
+
+          make O=out gts4lvwifi_eur_open_defconfig 2>&1 | tee build_defconfig.log
+          make O=out -j"$(nproc)" 2>&1 | tee build_kernel.log
+
+          echo "==== output files ===="
+          ls -lh out/arch/arm64/boot/ || true
+          ls -lh out/ || true
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kernel
+          name: kernel-build
           path: |
+            out/arch/arm64/boot/Image
             out/arch/arm64/boot/Image.gz
             out/vmlinux
             out/System.map
+            out/.config
+            build_defconfig.log
+            build_kernel.log
+          if-no-files-found: warn
