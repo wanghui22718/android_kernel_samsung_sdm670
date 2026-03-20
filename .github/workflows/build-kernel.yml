@@ -45,6 +45,12 @@ jobs:
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             $DEFCONFIG
 
+          # 3. FIX: Inject the missing CPU Mask values directly into .config
+          # This prevents the build from stopping to ask for these values.
+          echo 'CONFIG_LITTLE_CPU_MASK="0x3f"' >> out/.config
+          echo 'CONFIG_BIG_CPU_MASK="0xc0"' >> out/.config
+          echo 'CONFIG_PRIME_CPU_MASK="0x0"' >> out/.config
+          
           # 3. FIX: Handle missing symbols (LITTLE_CPU_MASK, etc.) automatically
           # This prevents the "Console input/output is redirected" error
           make -j$(nproc --all) O=out ARCH=arm64 \
