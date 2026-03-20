@@ -36,7 +36,7 @@ jobs:
           
           # Configuration name provided by you
           # Note: In this repo, it is located in the 'vendor/' subfolder
-          DEFCONFIG=vendor/gts4lvwifi_eur_open_defconfig
+          DEFCONFIG=gts4lvwifi_eur_open_defconfig
           
           # 2. Initialize the .config file
           make -j$(nproc --all) O=out ARCH=arm64 \
