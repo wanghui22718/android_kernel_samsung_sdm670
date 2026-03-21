@@ -33,6 +33,7 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           export PATH=$(pwd)/toolchain/clang/bin:$PATH
+          KCFLAGS="-Wno-error=misleading-indentation -Wno-error=unused-but-set-variable -Wno-error=format-overflow -Wno-error=array-bounds"
           
           # Configuration name provided by you
           # Note: In this repo, it is located in the 'vendor/' subfolder
@@ -44,6 +45,7 @@ jobs:
             LLVM_IAS=1 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            KCFLAGS="${KCFLAGS}" \
             $DEFCONFIG
           
 
@@ -51,6 +53,7 @@ jobs:
           make -j$(nproc --all) O=out ARCH=arm64 \
             LLVM=1 \
             LLVM_IAS=1 \
+            KCFLAGS="${KCFLAGS}" \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
