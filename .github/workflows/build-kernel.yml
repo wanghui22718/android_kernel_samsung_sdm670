@@ -40,17 +40,19 @@ jobs:
           
           # 2. Initialize the .config file
           make -j$(nproc --all) O=out ARCH=arm64 \
-            CC=clang \
+            LLVM=1 \
+            LLVM_IAS=1 \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
             $DEFCONFIG
+          
 
           # 4. Compile the kernel
           make -j$(nproc --all) O=out ARCH=arm64 \
-            CC=clang \
+            LLVM=1 \
+            LLVM_IAS=1 \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            CLANG_TRIPLE=aarch64-linux-gnu-
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
 
       - name: Check for Output
         run: |
